@@ -1,0 +1,21 @@
+Interview Experience — Google, ML Engineer
+Date: March 5, 2026
+
+I had a technical coding round with Google for the ML Engineer position.
+
+The interviewer asked me to implement an LRU Cache from scratch.
+I managed to come up with a solution using a doubly linked list and a hashmap,
+but I struggled to explain why the time complexity was O(1) for both get and put.
+
+The interviewer also asked me to optimise memory usage, but I could not come up
+with a better approach under time pressure.
+
+Feedback from interviewer:
+- Good problem understanding and overall approach
+- Weak on algorithm optimisation and time complexity explanation
+- Communication could be clearer when walking through the solution
+
+Result: Did not pass (Fail)
+
+Next steps: practice more algorithm problems, focus on complexity analysis,
+and do more mock interviews with time pressure.

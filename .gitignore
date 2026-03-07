@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Environment variables — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Database
+*.sqlite3
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Frontend
+node_modules/
+.next/
+out/
+.vercel/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# Qdrant local storage
+qdrant_storage/
+
+# Markdown docs (keep only README.md)
+*.md
+!README.md
