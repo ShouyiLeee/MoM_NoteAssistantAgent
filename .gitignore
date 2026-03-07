@@ -50,3 +50,7 @@ coverage.xml
 
 # Qdrant local storage
 qdrant_storage/
+
+# Markdown docs (keep only README.md)
+*.md
+!README.md
