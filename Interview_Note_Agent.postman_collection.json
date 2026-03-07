@@ -1,0 +1,399 @@
+{
+  "info": {
+    "name": "Interview Note Agent",
+    "description": "AI-powered Interview Intelligence System — API collection for testing all endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "user-123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the server is running."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\": \"ok\", \"service\": \"interview-note-agent\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Interviews",
+      "item": [
+        {
+          "name": "Upload Interview Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/upload",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "upload"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"raw_notes\": \"Interview with Google for ML Engineer position.\\nDate: March 5, 2026\\nStage: Coding Round 2\\n\\nThe interviewer asked me to implement an LRU Cache from scratch.\\nI managed to come up with a solution using a doubly linked list and a hashmap,\\nbut I struggled to explain why the time complexity was O(1) for both get and put.\\n\\nFeedback: Good problem understanding but weak on algorithm optimization and time complexity explanation.\\nResult: Did not pass (Fail)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Upload raw interview notes. The Note Agent extracts structured data (company, role, stage, result, feedback) and stores it in PostgreSQL + Qdrant."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"interview_id\": \"uuid-...\",\n  \"extracted\": {\n    \"company\": \"Google\",\n    \"role\": \"ML Engineer\",\n    \"stage\": \"Coding\",\n    \"result\": \"Fail\",\n    \"feedback\": \"Weak on algorithm optimization and time complexity explanation\"\n  },\n  \"message\": \"Interview recorded successfully.\\n  Company  : Google\\n  Role     : ML Engineer\\n  Stage    : Coding\\n  Result   : Fail\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Upload Interview Note (Meta, System Design)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/upload",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "upload"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"raw_notes\": \"Interview with Meta for Software Engineer position.\\nDate: February 20, 2026\\nStage: System Design\\n\\nWas asked to design a scalable notification system.\\nI couldn't clearly explain the trade-offs between push and pull models.\\nAlso had trouble estimating the throughput requirements.\\n\\nFeedback: Weak on system design fundamentals and capacity planning.\\nResult: Fail\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Upload a second interview note to build history for RAG testing."
+          }
+        },
+        {
+          "name": "Upload Interview Note (Amazon, Behavioral - Pass)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/upload",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "upload"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"raw_notes\": \"Interview with Amazon for Data Scientist role.\\nDate: March 1, 2026\\nStage: Behavioral\\n\\nLP questions focused on ownership and customer obsession.\\nAnswered all questions clearly using STAR method.\\nInterviewer was very positive throughout.\\n\\nFeedback: Strong communication and well-structured answers.\\nResult: Pass — moving to final round\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Upload a passing interview to have mixed results in history."
+          }
+        },
+        {
+          "name": "Get Interview History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/interviews/history?user_id={{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "history"],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Retrieve all interview records for the user, ordered by most recent first."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"interviews\": [\n    {\n      \"id\": \"uuid-...\",\n      \"company\": \"Google\",\n      \"role\": \"ML Engineer\",\n      \"stage\": \"Coding\",\n      \"result\": \"Fail\",\n      \"feedback\": \"Weak on algorithm optimization\",\n      \"date\": \"2026-03-05\"\n    }\n  ],\n  \"total\": 1\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Analysis",
+      "item": [
+        {
+          "name": "Analyze — Why do I fail coding?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "analyze"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"query\": \"Why do I keep failing coding interviews?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ask the Analysis Agent to identify patterns in coding interview failures using RAG over stored notes."
+          }
+        },
+        {
+          "name": "Analyze — What is my weakest stage?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "analyze"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"query\": \"What is my weakest interview stage and what should I focus on improving?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ask for a breakdown of which interview stage (Coding, System Design, Behavioral) is weakest."
+          }
+        },
+        {
+          "name": "Analyze — Overall performance summary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "analyze"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"query\": \"Give me an overall summary of my interview performance and a prioritized improvement plan.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Request a full performance summary with an improvement plan."
+          }
+        },
+        {
+          "name": "Analyze — Which companies rejected me?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/interviews/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["interviews", "analyze"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"query\": \"Which companies rejected me and what were their main reasons?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mock Interview",
+      "item": [
+        {
+          "name": "Start Mock — ML Engineer (Medium)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/mock-interview/start",
+              "host": ["{{base_url}}"],
+              "path": ["mock-interview", "start"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"target_role\": \"ML Engineer\",\n  \"difficulty\": \"medium\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Start a medium-difficulty mock interview for an ML Engineer role. The Simulation Agent uses past weakness patterns to generate a targeted question."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"session_id\": \"uuid-...\",\n  \"question\": {\n    \"question\": \"Design an LRU Cache with O(1) get and put operations.\",\n    \"follow_ups\": [\n      \"What data structures did you choose and why?\",\n      \"Explain the time complexity of each operation.\",\n      \"How would you handle thread safety in a concurrent environment?\"\n    ],\n    \"focus_area\": \"Data Structures & Algorithm Optimization\",\n    \"difficulty\": \"medium\"\n  },\n  \"message\": \"Mock Interview — ML Engineer (Medium)...\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Start Mock — Software Engineer (Hard)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/mock-interview/start",
+              "host": ["{{base_url}}"],
+              "path": ["mock-interview", "start"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"target_role\": \"Software Engineer\",\n  \"difficulty\": \"hard\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Start a hard-difficulty mock interview for a Software Engineer role."
+          }
+        },
+        {
+          "name": "Start Mock — Data Scientist (Easy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/mock-interview/start",
+              "host": ["{{base_url}}"],
+              "path": ["mock-interview", "start"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"target_role\": \"Data Scientist\",\n  \"difficulty\": \"easy\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Start an easy-difficulty mock interview for a Data Scientist role."
+          }
+        },
+        {
+          "name": "Start Mock — System Design Focus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/mock-interview/start",
+              "host": ["{{base_url}}"],
+              "path": ["mock-interview", "start"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"target_role\": \"Senior Software Engineer\",\n  \"difficulty\": \"hard\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Start a hard system design mock interview. Agent uses RAG to target known system design weaknesses."
+          }
+        }
+      ]
+    }
+  ]
+}
