@@ -1,10 +1,7 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
 from app.db.postgres import init_db
 from app.db.qdrant_client import init_qdrant
@@ -50,14 +47,3 @@ app.include_router(analytics_router.router, prefix="/analytics", tags=["Analytic
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok", "service": "interview-note-agent"}
-
-
-# ── Serve Frontend ────────────────────────────────────────────────────────────
-FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
-
-if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
-    @app.get("/", include_in_schema=False)
-    async def serve_frontend():
-        return FileResponse(str(FRONTEND_DIR / "index.html"))
