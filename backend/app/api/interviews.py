@@ -12,6 +12,7 @@ from app.schemas.interview import (
     InterviewUploadResponse,
     ExtractedInterview,
 )
+from app.services.cv_service import get_cv_context
 
 router = APIRouter()
 
@@ -19,9 +20,12 @@ router = APIRouter()
 @router.post("/upload", response_model=InterviewUploadResponse)
 async def upload_interview(request: InterviewUploadRequest):
     """
-    Upload raw interview notes.
-    The Note Agent extracts structured data and stores it in PostgreSQL + Qdrant.
+    Upload raw interview notes. Optionally include a Job Description (jd_text).
+    If the user has an active CV on file, it will be included automatically to improve extraction.
     """
+    # Fetch user's CV summary for enriched extraction (auto, no extra request needed)
+    cv_context = await get_cv_context(request.user_id)
+
     state = {
         "messages": [],
         "user_id": request.user_id,
@@ -32,6 +36,8 @@ async def upload_interview(request: InterviewUploadRequest):
         "response": "",
         "collection_id": str(request.collection_id) if request.collection_id else None,
         "mock_session": None,
+        "jd_text": request.jd_text,
+        "cv_context": cv_context,
     }
     result = await interview_graph.ainvoke(state)
 

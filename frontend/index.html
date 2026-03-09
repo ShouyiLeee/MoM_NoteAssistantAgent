@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Note Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .nav-item { @apply flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all text-slate-400 hover:text-white hover:bg-slate-700; }
+    .nav-item.active { @apply bg-indigo-600 text-white; }
+    .card { @apply bg-slate-800 rounded-xl p-5 border border-slate-700; }
+    .btn-primary { @apply bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn-secondary { @apply bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg font-medium transition-all; }
+    .input-field { @apply w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500; }
+    .label { @apply block text-sm font-medium text-slate-300 mb-1.5; }
+    .badge-pass { @apply bg-emerald-500/20 text-emerald-400 text-xs font-medium px-2 py-0.5 rounded-full; }
+    .badge-fail { @apply bg-red-500/20 text-red-400 text-xs font-medium px-2 py-0.5 rounded-full; }
+    .badge-pending { @apply bg-amber-500/20 text-amber-400 text-xs font-medium px-2 py-0.5 rounded-full; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .spinner { @apply animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full inline-block; }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col p-4 fixed h-full">
+    <div class="mb-8 px-2">
+      <h1 class="text-xl font-bold text-white flex items-center gap-2">
+        <span class="text-2xl">🧠</span>
+        <span>Interview<br><span class="text-indigo-400">Note Agent</span></span>
+      </h1>
+      <p class="text-xs text-slate-500 mt-1">AI Interview Intelligence</p>
+    </div>
+
+    <div class="mb-4">
+      <label class="label">User ID</label>
+      <input id="globalUserId" type="text" class="input-field text-sm" value="user-123" placeholder="user-123" />
+    </div>
+
+    <nav class="flex flex-col gap-1 flex-1">
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span>📊</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showPage('upload')">
+        <span>📝</span> Upload Interview
+      </div>
+      <div class="nav-item" onclick="showPage('cv')">
+        <span>📄</span> My CV
+      </div>
+      <div class="nav-item" onclick="showPage('analysis')">
+        <span>🔍</span> Analysis
+      </div>
+      <div class="nav-item" onclick="showPage('mock')">
+        <span>🎯</span> Mock Interview
+      </div>
+      <div class="nav-item" onclick="showPage('history')">
+        <span>📋</span> History
+      </div>
+    </nav>
+
+    <div class="mt-auto pt-4 border-t border-slate-700">
+      <p class="text-xs text-slate-500">API: <span id="apiBaseDisplay" class="text-slate-400">localhost:8000</span></p>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="ml-64 flex-1 p-8 overflow-auto">
+
+    <!-- ── DASHBOARD ─────────────────────────────────────────────────── -->
+    <div id="page-dashboard" class="page active">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold">Dashboard</h2>
+          <p class="text-slate-400 text-sm mt-1">Track your interview performance over time</p>
+        </div>
+        <button class="btn-secondary text-sm" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+
+      <div id="dashboardLoading" class="text-center py-16 text-slate-400">
+        <div class="spinner mx-auto mb-3"></div>
+        Loading analytics...
+      </div>
+
+      <div id="dashboardContent" class="hidden">
+        <!-- Stats Row -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="card text-center">
+            <p class="text-3xl font-bold text-white" id="statTotal">-</p>
+            <p class="text-slate-400 text-sm mt-1">Total Interviews</p>
+          </div>
+          <div class="card text-center">
+            <p class="text-3xl font-bold text-emerald-400" id="statPassRate">-</p>
+            <p class="text-slate-400 text-sm mt-1">Pass Rate</p>
+          </div>
+          <div class="card text-center">
+            <p class="text-2xl font-bold text-indigo-400" id="statWeakStage">-</p>
+            <p class="text-slate-400 text-sm mt-1">Weakest Stage</p>
+          </div>
+          <div class="card text-center">
+            <p class="text-3xl font-bold text-amber-400" id="statPending">-</p>
+            <p class="text-slate-400 text-sm mt-1">Pending</p>
+          </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <div class="card">
+            <h3 class="font-semibold mb-4 text-slate-200">Result Breakdown</h3>
+            <div class="h-56 flex items-center justify-center">
+              <canvas id="chartResult"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="font-semibold mb-4 text-slate-200">Performance by Stage</h3>
+            <div class="h-56">
+              <canvas id="chartStage"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="card">
+            <h3 class="font-semibold mb-4 text-slate-200">Monthly Timeline</h3>
+            <div class="h-48">
+              <canvas id="chartTimeline"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="font-semibold mb-4 text-slate-200">Top Companies</h3>
+            <div class="h-48">
+              <canvas id="chartCompany"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="dashboardEmpty" class="hidden text-center py-16 text-slate-500">
+        <p class="text-4xl mb-3">📭</p>
+        <p class="text-lg">No interview data yet.</p>
+        <p class="text-sm mt-1">Upload your first interview to see analytics.</p>
+        <button class="btn-primary mt-4 text-sm" onclick="showPage('upload')">Upload Interview</button>
+      </div>
+    </div>
+
+    <!-- ── UPLOAD INTERVIEW ──────────────────────────────────────────── -->
+    <div id="page-upload" class="page">
+      <h2 class="text-2xl font-bold mb-1">Upload Interview</h2>
+      <p class="text-slate-400 text-sm mb-6">Paste your interview notes. Add a JD for better extraction accuracy.</p>
+
+      <div class="max-w-2xl">
+        <div class="card space-y-5">
+          <div>
+            <label class="label">Interview Notes <span class="text-red-400">*</span></label>
+            <textarea id="uploadNotes" rows="8" class="input-field resize-none"
+              placeholder="Paste your raw interview notes here...&#10;&#10;E.g. Interview with Google for ML Engineer on March 5, 2026.&#10;Stage: Coding Round 2&#10;&#10;The interviewer asked me to implement an LRU Cache...&#10;Result: Fail"></textarea>
+          </div>
+          <div>
+            <label class="label">Job Description <span class="text-slate-500">(optional — improves extraction)</span></label>
+            <textarea id="uploadJD" rows="5" class="input-field resize-none"
+              placeholder="Paste the job description here...&#10;&#10;This helps the AI understand the role context and extract more accurate information."></textarea>
+          </div>
+          <div class="flex gap-3">
+            <button class="btn-primary flex-1" onclick="submitUpload()" id="uploadBtn">
+              Upload & Process
+            </button>
+            <button class="btn-secondary" onclick="clearUpload()">Clear</button>
+          </div>
+        </div>
+
+        <div id="uploadResult" class="card mt-4 hidden">
+          <h3 class="font-semibold text-emerald-400 mb-3">✓ Interview Recorded</h3>
+          <div id="uploadResultContent"></div>
+        </div>
+        <div id="uploadError" class="card mt-4 hidden border-red-500/40 bg-red-900/20">
+          <p class="text-red-400 text-sm" id="uploadErrorMsg"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MY CV ─────────────────────────────────────────────────────── -->
+    <div id="page-cv" class="page">
+      <h2 class="text-2xl font-bold mb-1">My CV</h2>
+      <p class="text-slate-400 text-sm mb-6">Upload your CV once. The system deduplicates versions and uses it to enrich interview analysis.</p>
+
+      <div class="grid grid-cols-2 gap-6">
+        <!-- Upload panel -->
+        <div>
+          <div class="card space-y-4">
+            <h3 class="font-semibold text-slate-200">Upload / Update CV</h3>
+            <div>
+              <label class="label">CV Text Content <span class="text-red-400">*</span></label>
+              <textarea id="cvText" rows="12" class="input-field resize-none text-sm"
+                placeholder="Paste your CV text here...&#10;&#10;Name, contact info, experience, education, skills...&#10;&#10;The AI will extract a structured summary and only create a new version if the content is meaningfully different from the previous one."></textarea>
+            </div>
+            <div>
+              <label class="label">Filename <span class="text-slate-500">(optional)</span></label>
+              <input id="cvFilename" type="text" class="input-field" placeholder="e.g. CV_2026_v3.pdf" />
+            </div>
+            <button class="btn-primary w-full" onclick="submitCV()" id="cvBtn">
+              Upload CV
+            </button>
+          </div>
+          <div id="cvUploadError" class="card mt-3 hidden border-red-500/40 bg-red-900/20">
+            <p class="text-red-400 text-sm" id="cvUploadErrorMsg"></p>
+          </div>
+        </div>
+
+        <!-- Current CV panel -->
+        <div>
+          <div class="card" id="cvCurrentPanel">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-slate-200">Current CV Summary</h3>
+              <button class="text-xs text-slate-500 hover:text-slate-300" onclick="loadCV()">↻ Refresh</button>
+            </div>
+            <div id="cvCurrentContent">
+              <p class="text-slate-500 text-sm">No CV uploaded yet.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANALYSIS ───────────────────────────────────────────────────── -->
+    <div id="page-analysis" class="page">
+      <h2 class="text-2xl font-bold mb-1">Analysis</h2>
+      <p class="text-slate-400 text-sm mb-6">Ask questions about your interview performance. Powered by RAG over your interview history.</p>
+
+      <div class="max-w-2xl">
+        <div class="card mb-4">
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span class="text-xs text-slate-400">Quick questions:</span>
+            <button class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-full"
+              onclick="setQuery('Why do I keep failing interviews?')">Why do I keep failing?</button>
+            <button class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-full"
+              onclick="setQuery('What is my weakest interview stage?')">Weakest stage?</button>
+            <button class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-full"
+              onclick="setQuery('Which companies rejected me and why?')">Rejections by company?</button>
+            <button class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-full"
+              onclick="setQuery('What should I focus on to improve?')">How to improve?</button>
+          </div>
+          <div class="flex gap-3">
+            <input id="analysisQuery" type="text" class="input-field flex-1"
+              placeholder="Ask about your interview performance..." />
+            <button class="btn-primary" onclick="submitAnalysis()" id="analysisBtn">Ask</button>
+          </div>
+        </div>
+
+        <div id="analysisHistory" class="space-y-4"></div>
+      </div>
+    </div>
+
+    <!-- ── MOCK INTERVIEW ─────────────────────────────────────────────── -->
+    <div id="page-mock" class="page">
+      <h2 class="text-2xl font-bold mb-1">Mock Interview</h2>
+      <p class="text-slate-400 text-sm mb-6">Practice with AI-generated questions targeting your weak areas.</p>
+
+      <div class="max-w-2xl">
+        <div class="card mb-6">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="label">Target Role</label>
+              <input id="mockRole" type="text" class="input-field" placeholder="e.g. ML Engineer" value="Software Engineer" />
+            </div>
+            <div>
+              <label class="label">Difficulty</label>
+              <select id="mockDifficulty" class="input-field">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-primary w-full" onclick="startMock()" id="mockBtn">
+            Generate Question
+          </button>
+        </div>
+
+        <div id="mockResult" class="hidden space-y-4">
+          <div class="card border-indigo-500/40">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-indigo-400 font-semibold text-sm" id="mockFocusArea"></span>
+                <span class="text-xs bg-slate-700 px-2 py-0.5 rounded-full" id="mockDifficultyBadge"></span>
+              </div>
+              <button class="text-xs text-slate-500 hover:text-slate-300" onclick="startMock()">↻ New Question</button>
+            </div>
+            <p class="text-lg font-medium text-white" id="mockQuestion"></p>
+          </div>
+
+          <div class="card" id="mockFollowupsCard">
+            <h4 class="text-sm font-semibold text-slate-400 mb-3">Follow-up Questions</h4>
+            <ul id="mockFollowups" class="space-y-2"></ul>
+          </div>
+
+          <div class="card bg-slate-700/50">
+            <p class="text-xs text-slate-400">Session ID: <span id="mockSessionId" class="font-mono text-slate-300"></span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HISTORY ────────────────────────────────────────────────────── -->
+    <div id="page-history" class="page">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold">Interview History</h2>
+          <p class="text-slate-400 text-sm mt-1">All recorded interviews</p>
+        </div>
+        <button class="btn-secondary text-sm" onclick="loadHistory()">↻ Refresh</button>
+      </div>
+
+      <div id="historyLoading" class="text-center py-8 text-slate-400">
+        <div class="spinner mx-auto mb-3"></div>
+        Loading...
+      </div>
+      <div id="historyContent" class="hidden space-y-3"></div>
+      <div id="historyEmpty" class="hidden text-center py-16 text-slate-500">
+        <p class="text-4xl mb-3">📭</p>
+        <p>No interviews recorded yet.</p>
+        <button class="btn-primary mt-4 text-sm" onclick="showPage('upload')">Upload First Interview</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── Config ────────────────────────────────────────────────────────────────
+    const API_BASE = 'http://localhost:8000';
+    let charts = {};
+
+    function getUserId() {
+      return document.getElementById('globalUserId').value.trim() || 'user-123';
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      event.currentTarget.classList.add('active');
+
+      if (name === 'dashboard') loadDashboard();
+      if (name === 'history') loadHistory();
+      if (name === 'cv') loadCV();
+    }
+
+    // ── API helper ────────────────────────────────────────────────────────────
+    async function api(method, path, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(API_BASE + path, opts);
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    function setLoading(btnId, loading, label = 'Submit') {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled = loading;
+      btn.innerHTML = loading ? '<span class="spinner"></span>' : label;
+    }
+
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+    async function loadDashboard() {
+      const userId = getUserId();
+      document.getElementById('dashboardLoading').classList.remove('hidden');
+      document.getElementById('dashboardContent').classList.add('hidden');
+      document.getElementById('dashboardEmpty').classList.add('hidden');
+
+      try {
+        const data = await api('GET', `/analytics/${userId}`);
+
+        if (data.total === 0) {
+          document.getElementById('dashboardLoading').classList.add('hidden');
+          document.getElementById('dashboardEmpty').classList.remove('hidden');
+          return;
+        }
+
+        document.getElementById('statTotal').textContent = data.total;
+        document.getElementById('statPassRate').textContent = data.pass_rate + '%';
+        document.getElementById('statWeakStage').textContent = data.weakest_stage || '—';
+        document.getElementById('statPending').textContent = data.by_result['Pending'] || 0;
+
+        renderCharts(data);
+
+        document.getElementById('dashboardLoading').classList.add('hidden');
+        document.getElementById('dashboardContent').classList.remove('hidden');
+      } catch (e) {
+        document.getElementById('dashboardLoading').innerHTML =
+          `<p class="text-red-400">Error: ${e.message}</p>`;
+      }
+    }
+
+    function destroyChart(id) {
+      if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    }
+
+    function renderCharts(data) {
+      const COLORS = {
+        Pass: '#10b981', Fail: '#ef4444', Pending: '#f59e0b', Unknown: '#6b7280',
+      };
+      const stageColors = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316'];
+
+      // Result Doughnut
+      destroyChart('result');
+      const rLabels = Object.keys(data.by_result);
+      charts.result = new Chart(document.getElementById('chartResult'), {
+        type: 'doughnut',
+        data: {
+          labels: rLabels,
+          datasets: [{ data: rLabels.map(l => data.by_result[l]),
+            backgroundColor: rLabels.map(l => COLORS[l] || '#6b7280'), borderWidth: 0 }]
+        },
+        options: { plugins: { legend: { labels: { color: '#94a3b8' } } }, cutout: '65%' }
+      });
+
+      // Stage Bar
+      destroyChart('stage');
+      const stages = Object.keys(data.by_stage);
+      charts.stage = new Chart(document.getElementById('chartStage'), {
+        type: 'bar',
+        data: {
+          labels: stages,
+          datasets: [
+            { label: 'Pass', data: stages.map(s => data.by_stage[s].pass || 0), backgroundColor: '#10b981' },
+            { label: 'Fail', data: stages.map(s => data.by_stage[s].fail || 0), backgroundColor: '#ef4444' },
+            { label: 'Pending', data: stages.map(s => data.by_stage[s].pending || 0), backgroundColor: '#f59e0b' },
+          ]
+        },
+        options: {
+          plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12 } } },
+          scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } },
+          responsive: true, maintainAspectRatio: false
+        }
+      });
+
+      // Timeline Line
+      destroyChart('timeline');
+      charts.timeline = new Chart(document.getElementById('chartTimeline'), {
+        type: 'line',
+        data: {
+          labels: data.timeline.map(t => t.month),
+          datasets: [{ label: 'Interviews', data: data.timeline.map(t => t.count),
+            borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.15)',
+            fill: true, tension: 0.4, pointBackgroundColor: '#6366f1' }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: '#1e293b' } } },
+          responsive: true, maintainAspectRatio: false
+        }
+      });
+
+      // Company Bar
+      destroyChart('company');
+      const companies = Object.keys(data.by_company);
+      charts.company = new Chart(document.getElementById('chartCompany'), {
+        type: 'bar',
+        data: {
+          labels: companies,
+          datasets: [{ label: 'Total', data: companies.map(c => data.by_company[c].total),
+            backgroundColor: stageColors }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } },
+          responsive: true, maintainAspectRatio: false
+        }
+      });
+    }
+
+    // ── Upload ────────────────────────────────────────────────────────────────
+    async function submitUpload() {
+      const notes = document.getElementById('uploadNotes').value.trim();
+      const jd = document.getElementById('uploadJD').value.trim();
+      if (!notes) return alert('Please enter interview notes.');
+
+      document.getElementById('uploadResult').classList.add('hidden');
+      document.getElementById('uploadError').classList.add('hidden');
+      setLoading('uploadBtn', true, 'Processing...');
+
+      try {
+        const body = { user_id: getUserId(), raw_notes: notes };
+        if (jd) body.jd_text = jd;
+        const data = await api('POST', '/interviews/upload', body);
+
+        const e = data.extracted;
+        document.getElementById('uploadResultContent').innerHTML = `
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><span class="text-slate-400">Company:</span> <span class="font-medium">${e.company || '—'}</span></div>
+            <div><span class="text-slate-400">Role:</span> <span class="font-medium">${e.role || '—'}</span></div>
+            <div><span class="text-slate-400">Stage:</span> <span class="font-medium">${e.stage || '—'}</span></div>
+            <div><span class="text-slate-400">Result:</span> ${badgeHtml(e.result)}</div>
+            <div class="col-span-2"><span class="text-slate-400">Date:</span> <span class="font-medium">${e.date || '—'}</span></div>
+            ${e.feedback ? `<div class="col-span-2"><span class="text-slate-400">Feedback:</span><p class="text-slate-300 mt-1">${e.feedback}</p></div>` : ''}
+          </div>
+          <p class="text-xs text-slate-500 mt-3 font-mono">ID: ${data.interview_id}</p>`;
+        document.getElementById('uploadResult').classList.remove('hidden');
+      } catch (e) {
+        document.getElementById('uploadErrorMsg').textContent = 'Error: ' + e.message;
+        document.getElementById('uploadError').classList.remove('hidden');
+      } finally {
+        setLoading('uploadBtn', false, 'Upload & Process');
+      }
+    }
+
+    function clearUpload() {
+      document.getElementById('uploadNotes').value = '';
+      document.getElementById('uploadJD').value = '';
+      document.getElementById('uploadResult').classList.add('hidden');
+      document.getElementById('uploadError').classList.add('hidden');
+    }
+
+    // ── CV ────────────────────────────────────────────────────────────────────
+    async function loadCV() {
+      try {
+        const data = await api('GET', `/cv/${getUserId()}`);
+        renderCV(data);
+      } catch (e) {
+        document.getElementById('cvCurrentContent').innerHTML =
+          '<p class="text-slate-500 text-sm">No CV uploaded yet.</p>';
+      }
+    }
+
+    function renderCV(cv) {
+      document.getElementById('cvCurrentContent').innerHTML = `
+        <div class="space-y-3 text-sm">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs bg-indigo-600/30 text-indigo-300 px-2 py-0.5 rounded-full">v${cv.version}</span>
+            ${cv.change_summary ? `<span class="text-xs text-slate-500">${cv.change_summary}</span>` : ''}
+          </div>
+          ${cv.summary ? `<div><p class="text-slate-400 text-xs mb-1">Summary</p><p class="text-slate-200">${cv.summary}</p></div>` : ''}
+          ${cv.experience_years ? `<div><p class="text-slate-400 text-xs mb-1">Experience</p><p>${cv.experience_years} years</p></div>` : ''}
+          ${cv.education ? `<div><p class="text-slate-400 text-xs mb-1">Education</p><p>${cv.education}</p></div>` : ''}
+          ${cv.skills.length ? `<div><p class="text-slate-400 text-xs mb-1">Skills</p>
+            <div class="flex flex-wrap gap-1.5">${cv.skills.map(s => `<span class="bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-xs">${s}</span>`).join('')}</div></div>` : ''}
+          ${cv.recent_roles.length ? `<div><p class="text-slate-400 text-xs mb-1">Recent Roles</p>
+            <ul class="space-y-1">${cv.recent_roles.map(r => `<li class="text-slate-300">• ${r}</li>`).join('')}</ul></div>` : ''}
+          <p class="text-xs text-slate-600 pt-2">Uploaded: ${cv.created_at?.substring(0,10)}</p>
+        </div>`;
+    }
+
+    async function submitCV() {
+      const text = document.getElementById('cvText').value.trim();
+      const filename = document.getElementById('cvFilename').value.trim();
+      if (!text) return alert('Please paste your CV text.');
+
+      document.getElementById('cvUploadError').classList.add('hidden');
+      setLoading('cvBtn', true, 'Processing CV...');
+
+      try {
+        const body = { user_id: getUserId(), cv_text: text };
+        if (filename) body.filename = filename;
+        const data = await api('POST', '/cv/upload', body);
+        renderCV(data);
+        document.getElementById('cvText').value = '';
+        document.getElementById('cvFilename').value = '';
+      } catch (e) {
+        document.getElementById('cvUploadErrorMsg').textContent = 'Error: ' + e.message;
+        document.getElementById('cvUploadError').classList.remove('hidden');
+      } finally {
+        setLoading('cvBtn', false, 'Upload CV');
+      }
+    }
+
+    // ── Analysis ──────────────────────────────────────────────────────────────
+    function setQuery(q) { document.getElementById('analysisQuery').value = q; }
+
+    async function submitAnalysis() {
+      const query = document.getElementById('analysisQuery').value.trim();
+      if (!query) return alert('Please enter a question.');
+
+      setLoading('analysisBtn', true, 'Analyzing...');
+
+      // Show user message immediately
+      const container = document.getElementById('analysisHistory');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'card bg-indigo-900/30 border-indigo-500/30';
+      userBubble.innerHTML = `<p class="text-sm text-indigo-200 font-medium mb-1">You</p><p>${query}</p>`;
+      container.prepend(userBubble);
+
+      try {
+        const data = await api('POST', '/interviews/analyze', { user_id: getUserId(), query });
+        const aiBubble = document.createElement('div');
+        aiBubble.className = 'card border-slate-600';
+        aiBubble.innerHTML = `
+          <p class="text-sm text-slate-400 font-medium mb-2">AI Analysis <span class="text-xs ml-2">(${data.context_chunks_used} chunks used)</span></p>
+          <p class="text-slate-200 whitespace-pre-wrap leading-relaxed">${data.answer}</p>`;
+        container.prepend(aiBubble);
+        document.getElementById('analysisQuery').value = '';
+      } catch (e) {
+        const errBubble = document.createElement('div');
+        errBubble.className = 'card border-red-500/40 bg-red-900/20';
+        errBubble.innerHTML = `<p class="text-red-400 text-sm">Error: ${e.message}</p>`;
+        container.prepend(errBubble);
+      } finally {
+        setLoading('analysisBtn', false, 'Ask');
+      }
+    }
+
+    document.addEventListener('keydown', e => {
+      const q = document.getElementById('analysisQuery');
+      if (document.activeElement === q && e.key === 'Enter') submitAnalysis();
+    });
+
+    // ── Mock Interview ────────────────────────────────────────────────────────
+    async function startMock() {
+      const role = document.getElementById('mockRole').value.trim() || 'Software Engineer';
+      const difficulty = document.getElementById('mockDifficulty').value;
+
+      setLoading('mockBtn', true, 'Generating...');
+      document.getElementById('mockResult').classList.add('hidden');
+
+      try {
+        const data = await api('POST', '/mock-interview/start', {
+          user_id: getUserId(), target_role: role, difficulty
+        });
+        const q = data.question;
+        document.getElementById('mockFocusArea').textContent = q.focus_area || 'General';
+        document.getElementById('mockDifficultyBadge').textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+        document.getElementById('mockQuestion').textContent = q.question;
+        document.getElementById('mockSessionId').textContent = data.session_id;
+
+        const followupsList = document.getElementById('mockFollowups');
+        followupsList.innerHTML = (q.follow_ups || [])
+          .map(f => `<li class="text-slate-300 text-sm flex gap-2"><span class="text-indigo-400 mt-0.5">→</span><span>${f}</span></li>`)
+          .join('');
+
+        document.getElementById('mockResult').classList.remove('hidden');
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        setLoading('mockBtn', false, 'Generate Question');
+      }
+    }
+
+    // ── History ───────────────────────────────────────────────────────────────
+    async function loadHistory() {
+      document.getElementById('historyLoading').classList.remove('hidden');
+      document.getElementById('historyContent').classList.add('hidden');
+      document.getElementById('historyEmpty').classList.add('hidden');
+
+      try {
+        const data = await api('GET', `/interviews/history?user_id=${getUserId()}`);
+
+        if (data.total === 0) {
+          document.getElementById('historyLoading').classList.add('hidden');
+          document.getElementById('historyEmpty').classList.remove('hidden');
+          return;
+        }
+
+        const container = document.getElementById('historyContent');
+        container.innerHTML = data.interviews.map(iv => `
+          <div class="card hover:border-slate-600 transition-colors">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold text-white">${iv.company}</span>
+                  <span class="text-slate-500">·</span>
+                  <span class="text-slate-300">${iv.role}</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                  ${iv.stage ? `<span class="text-slate-400">${iv.stage}</span>` : ''}
+                  ${badgeHtml(iv.result)}
+                  ${iv.date ? `<span class="text-slate-500">${iv.date}</span>` : ''}
+                </div>
+                ${iv.feedback ? `<p class="text-slate-400 text-sm mt-2 leading-relaxed">${iv.feedback}</p>` : ''}
+              </div>
+            </div>
+          </div>`).join('');
+
+        document.getElementById('historyLoading').classList.add('hidden');
+        document.getElementById('historyContent').classList.remove('hidden');
+      } catch (e) {
+        document.getElementById('historyLoading').innerHTML =
+          `<p class="text-red-400">Error: ${e.message}</p>`;
+      }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function badgeHtml(result) {
+      if (!result) return '<span class="text-slate-500">—</span>';
+      const cls = result === 'Pass' ? 'badge-pass' : result === 'Fail' ? 'badge-fail' : 'badge-pending';
+      return `<span class="${cls}">${result}</span>`;
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadDashboard();
+  </script>
+</body>
+</html>

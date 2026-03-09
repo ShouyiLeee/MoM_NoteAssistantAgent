@@ -27,6 +27,8 @@ async def analyze_interviews(request: AnalysisRequest):
         "response": "",
         "collection_id": None,
         "mock_session": None,
+        "jd_text": None,
+        "cv_context": None,
     }
     result = await interview_graph.ainvoke(state)
 

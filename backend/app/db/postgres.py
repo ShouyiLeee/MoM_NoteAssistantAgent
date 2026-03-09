@@ -24,6 +24,7 @@ async def init_db():
     """Create all tables on startup."""
     # Import models so Base.metadata is populated before create_all
     from app.models import interview  # noqa: F401
+    from app.models import cv  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

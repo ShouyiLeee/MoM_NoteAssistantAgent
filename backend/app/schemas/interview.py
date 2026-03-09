@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 class InterviewUploadRequest(BaseModel):
     user_id: str
     raw_notes: str = Field(..., min_length=10, description="Raw interview notes or transcript")
+    jd_text: str | None = Field(None, description="Job Description text (optional, improves extraction)")
     collection_id: UUID | None = None
 
 
@@ -76,3 +77,37 @@ class MockInterviewResponse(BaseModel):
     session_id: str
     question: MockInterviewQuestion
     message: str
+
+
+# ── CV ────────────────────────────────────────────────────────────────────────
+
+class CVUploadRequest(BaseModel):
+    user_id: str
+    cv_text: str = Field(..., min_length=50, description="Raw CV/resume text content")
+    filename: str | None = None
+
+
+class CVResponse(BaseModel):
+    id: str
+    user_id: str
+    version: int
+    summary: str | None
+    skills: list[str]
+    experience_years: int | None
+    education: str | None
+    recent_roles: list[str]
+    change_summary: str | None
+    is_active: bool
+    created_at: str
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+class AnalyticsResponse(BaseModel):
+    total: int
+    pass_rate: float
+    by_result: dict[str, int]
+    by_stage: dict[str, dict]
+    by_company: dict[str, dict]
+    timeline: list[dict]
+    weakest_stage: str | None

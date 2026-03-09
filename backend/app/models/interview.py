@@ -38,6 +38,7 @@ class Interview(Base):
     result = Column(String, nullable=True)  # Pass | Fail | Pending
     feedback = Column(Text, nullable=True)
     raw_notes = Column(Text, nullable=True)
+    jd_text = Column(Text, nullable=True)    # Job Description text
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

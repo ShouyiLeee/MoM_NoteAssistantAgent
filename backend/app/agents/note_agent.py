@@ -39,10 +39,19 @@ Respond ONLY with valid JSON."""
 async def note_agent_node(state: AgentState) -> dict:
     raw_notes = state["raw_input"]
     user_id = state["user_id"]
+    jd_text = state.get("jd_text")
+    cv_context = state.get("cv_context")
 
-    # ── 1. Extract structured data via LLM ───────────────────────────────────
+    # ── 1. Build enriched extraction prompt ───────────────────────────────────
+    prompt_parts = [f"Interview notes:\n\n{raw_notes}"]
+    if jd_text:
+        prompt_parts.append(f"\nJob Description:\n\n{jd_text}")
+    if cv_context:
+        prompt_parts.append(f"\nCandidate CV Context:\n\n{cv_context}")
+
+    # ── 2. Extract structured data via LLM ───────────────────────────────────
     extracted = await llm.generate_json(
-        prompt=f"Interview notes:\n\n{raw_notes}",
+        prompt="\n".join(prompt_parts),
         system=EXTRACTION_SYSTEM,
     )
 
@@ -65,6 +74,7 @@ async def note_agent_node(state: AgentState) -> dict:
             result=extracted.get("result"),
             feedback=extracted.get("feedback"),
             raw_notes=raw_notes,
+            jd_text=jd_text,
         )
         session.add(interview)
         await session.commit()

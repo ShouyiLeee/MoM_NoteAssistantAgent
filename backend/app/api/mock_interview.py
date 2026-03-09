@@ -34,6 +34,8 @@ async def start_mock_interview(request: MockInterviewRequest):
             "target_role": request.target_role,
             "difficulty": request.difficulty,
         },
+        "jd_text": None,
+        "cv_context": None,
     }
     result = await interview_graph.ainvoke(state)
 

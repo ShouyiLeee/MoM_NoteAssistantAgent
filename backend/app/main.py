@@ -1,11 +1,16 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.db.postgres import init_db
 from app.db.qdrant_client import init_qdrant
 from app.api import interviews, analysis, mock_interview
+from app.api import cv as cv_router
+from app.api import analytics as analytics_router
 
 
 @asynccontextmanager
@@ -22,13 +27,13 @@ app = FastAPI(
         "AI-powered Interview Intelligence System. "
         "Upload interview notes, analyse performance, and practice with mock interviews."
     ),
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,8 +43,21 @@ app.add_middleware(
 app.include_router(interviews.router, prefix="/interviews", tags=["Interviews"])
 app.include_router(analysis.router, prefix="/interviews", tags=["Analysis"])
 app.include_router(mock_interview.router, prefix="/mock-interview", tags=["Mock Interview"])
+app.include_router(cv_router.router, prefix="/cv", tags=["CV"])
+app.include_router(analytics_router.router, prefix="/analytics", tags=["Analytics"])
 
 
 @app.get("/health", tags=["Health"])
 async def health():
     return {"status": "ok", "service": "interview-note-agent"}
+
+
+# ── Serve Frontend ────────────────────────────────────────────────────────────
+FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
+
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend():
+        return FileResponse(str(FRONTEND_DIR / "index.html"))

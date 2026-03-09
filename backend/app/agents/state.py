@@ -32,3 +32,7 @@ class AgentState(TypedDict):
 
     # Simulation Agent session state
     mock_session: dict | None
+
+    # Optional extra context for Note Agent
+    jd_text: str | None       # Job Description text
+    cv_context: str | None    # Compact CV summary string
