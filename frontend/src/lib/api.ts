@@ -62,21 +62,21 @@ export interface CVResponse {
   user_id: string;
   version: number;
   summary?: string;
-  skills?: string;
+  skills: string[];
   experience_years?: number;
   education?: string;
-  recent_roles?: string;
+  recent_roles: string[];
   change_summary?: string;
   created_at: string;
-  is_new_version: boolean;
+  is_active: boolean;
 }
 
 export interface AnalyticsResponse {
   total: number;
   pass_rate: number;
   by_result: Record<string, number>;
-  by_stage: Record<string, number>;
-  by_company: Array<{ company: string; count: number }>;
+  by_stage: Record<string, { total: number; pass: number; fail: number; pending: number }>;
+  by_company: Record<string, { total: number; pass: number; fail: number; pending: number }>;
   timeline: Array<{ month: string; count: number }>;
   weakest_stage?: string;
 }
@@ -128,8 +128,8 @@ export const uploadCV = (userId: string, rawText: string, filename?: string) =>
   api
     .post<CVResponse>("/cv/upload", {
       user_id: userId,
-      raw_text: rawText,
-      original_filename: filename || null,
+      cv_text: rawText,
+      filename: filename || null,
     })
     .then((r) => r.data);
 

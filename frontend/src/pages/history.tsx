@@ -51,6 +51,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState("All");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const uid = getUserId();
@@ -59,7 +60,7 @@ export default function HistoryPage() {
         setAll(data.interviews);
         setFiltered(data.interviews);
       })
-      .catch(() => {})
+      .catch(() => setError("Failed to load interview history. Make sure the backend is running."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -87,6 +88,11 @@ export default function HistoryPage() {
         <title>History — Interview Note Agent</title>
       </Head>
       <Layout title="Interview History">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <input

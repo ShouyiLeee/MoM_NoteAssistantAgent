@@ -3,18 +3,22 @@ Analysis Agent — answers questions about interview performance using RAG.
 
 Pipeline:
     User query
-        → Embed query
-        → Retrieve top-K interview chunks from Qdrant
+        → Retrieve top-K interview chunks via RAG tool
         → Build prompt with context
-        → Gemini Flash reasoning
+        → LLM reasoning via LLM tool
         → Structured insight
+
+All external operations go through MCP tools.
 """
 
 from langchain_core.messages import AIMessage
 
 from app.agents.state import AgentState
-from app.services.llm import llm
-from app.services.rag import retrieve_context, build_context_block
+from app.tools.registry import registry
+
+# Import tool modules to ensure tools are registered
+import app.tools.llm_tools  # noqa: F401
+import app.tools.rag_tools  # noqa: F401
 
 ANALYSIS_SYSTEM = """You are an expert interview performance coach and data analyst.
 
@@ -30,9 +34,13 @@ async def analysis_agent_node(state: AgentState) -> dict:
     query = state["raw_input"]
     user_id = state["user_id"]
 
-    # ── 1. Retrieve relevant interview chunks via RAG ─────────────────────────
-    context_chunks = await retrieve_context(query, user_id)
-    context_block = build_context_block(context_chunks)
+    # ── 1. Retrieve relevant interview chunks via RAG tool ────────────────────
+    context_chunks = await registry.execute(
+        "retrieve_context", query=query, user_id=user_id
+    )
+    context_block = await registry.execute(
+        "build_context_block", chunks=context_chunks
+    )
 
     # ── 2. Build analysis prompt ──────────────────────────────────────────────
     prompt = f"""User Question:
@@ -43,8 +51,10 @@ Retrieved Interview Context:
 
 Provide a thorough analysis based on the above interview records."""
 
-    # ── 3. LLM reasoning ──────────────────────────────────────────────────────
-    answer = await llm.generate(prompt=prompt, system=ANALYSIS_SYSTEM)
+    # ── 3. LLM reasoning via LLM tool ────────────────────────────────────────
+    answer = await registry.execute(
+        "generate_text", prompt=prompt, system=ANALYSIS_SYSTEM
+    )
 
     return {
         "retrieved_context": context_chunks,

@@ -5,21 +5,8 @@ import { fetchCV, uploadCV, type CVResponse } from "@/lib/api";
 import { getUserId } from "@/lib/user";
 
 function CVSummaryCard({ cv }: { cv: CVResponse }) {
-  const skills = (() => {
-    try {
-      return JSON.parse(cv.skills || "[]") as string[];
-    } catch {
-      return cv.skills ? [cv.skills] : [];
-    }
-  })();
-
-  const roles = (() => {
-    try {
-      return JSON.parse(cv.recent_roles || "[]") as string[];
-    } catch {
-      return cv.recent_roles ? [cv.recent_roles] : [];
-    }
-  })();
+  const skills = cv.skills || [];
+  const roles = cv.recent_roles || [];
 
   return (
     <div className="card p-6 space-y-5">
@@ -111,10 +98,10 @@ function UploadCVForm({ onSuccess }: { onSuccess: (cv: CVResponse) => void }) {
       const res = await uploadCV(uid, text);
       onSuccess(res);
       toast(
-        res.is_new_version
-          ? `CV updated — new version ${res.version} saved.`
-          : "CV unchanged — no new version created.",
-        res.is_new_version ? "success" : "info"
+        res.version > 1
+          ? `CV updated — version ${res.version} saved.`
+          : "CV uploaded successfully!",
+        "success"
       );
       setText("");
     } catch {

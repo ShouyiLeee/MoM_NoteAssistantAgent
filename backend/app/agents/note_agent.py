@@ -6,6 +6,8 @@ Pipeline:
         → LLM extraction (company, role, stage, result, feedback, date)
         → PostgreSQL (structured record)
         → Qdrant (chunked embeddings for RAG)
+
+All external operations go through MCP tools.
 """
 
 from datetime import date
@@ -14,11 +16,14 @@ from langchain_core.messages import AIMessage
 
 from app.agents.state import AgentState
 from app.config import settings
-from app.db.postgres import AsyncSessionLocal
-from app.db.qdrant_client import upsert_chunks
-from app.models.interview import Interview
-from app.services.embeddings import embedding_service
-from app.services.llm import llm
+from app.tools.registry import registry
+
+# Import tool modules to ensure tools are registered
+import app.tools.llm_tools      # noqa: F401
+import app.tools.embedding_tools # noqa: F401
+import app.tools.rag_tools      # noqa: F401
+import app.tools.db_tools       # noqa: F401
+
 
 EXTRACTION_SYSTEM = """You are an expert at extracting structured interview information from raw notes or transcripts.
 
@@ -49,13 +54,14 @@ async def note_agent_node(state: AgentState) -> dict:
     if cv_context:
         prompt_parts.append(f"\nCandidate CV Context:\n\n{cv_context}")
 
-    # ── 2. Extract structured data via LLM ───────────────────────────────────
-    extracted = await llm.generate_json(
+    # ── 2. Extract structured data via LLM tool ──────────────────────────────
+    extracted = await registry.execute(
+        "generate_json",
         prompt="\n".join(prompt_parts),
         system=EXTRACTION_SYSTEM,
     )
 
-    # ── 2. Persist structured record to PostgreSQL ────────────────────────────
+    # ── 3. Persist structured record via DB tool ─────────────────────────────
     interview_date = None
     if extracted.get("date"):
         try:
@@ -63,42 +69,39 @@ async def note_agent_node(state: AgentState) -> dict:
         except ValueError:
             pass
 
-    async with AsyncSessionLocal() as session:
-        interview = Interview(
-            user_id=user_id,
-            collection_id=state.get("collection_id"),
-            company=extracted.get("company") or "Unknown",
-            role=extracted.get("role") or "Unknown",
-            date=interview_date,
-            stage=extracted.get("stage"),
-            result=extracted.get("result"),
-            feedback=extracted.get("feedback"),
-            raw_notes=raw_notes,
-            jd_text=jd_text,
-        )
-        session.add(interview)
-        await session.commit()
-        await session.refresh(interview)
-        interview_id = str(interview.id)
+    interview_id = await registry.execute(
+        "save_interview",
+        user_id=user_id,
+        company=extracted.get("company") or "Unknown",
+        role=extracted.get("role") or "Unknown",
+        date=interview_date,
+        stage=extracted.get("stage"),
+        result=extracted.get("result"),
+        feedback=extracted.get("feedback"),
+        raw_notes=raw_notes,
+        jd_text=jd_text,
+        collection_id=state.get("collection_id"),
+    )
 
-    # ── 3. Chunk + embed raw notes → Qdrant ──────────────────────────────────
+    # ── 4. Chunk + embed raw notes via Embedding & RAG tools ─────────────────
     chunks = _chunk_text(raw_notes, settings.CHUNK_SIZE, settings.CHUNK_OVERLAP)
-    payloads = [
-        {
-            "text": chunk,
-            "user_id": user_id,
-            "interview_id": interview_id,
-            "company": extracted.get("company"),
-            "role": extracted.get("role"),
-            "stage": extracted.get("stage"),
-            "result": extracted.get("result"),
-        }
-        for chunk in chunks
-    ]
-    embeddings = await embedding_service.embed_batch(chunks)
-    await upsert_chunks(payloads, embeddings)
+    if chunks:
+        payloads = [
+            {
+                "text": chunk,
+                "user_id": user_id,
+                "interview_id": interview_id,
+                "company": extracted.get("company"),
+                "role": extracted.get("role"),
+                "stage": extracted.get("stage"),
+                "result": extracted.get("result"),
+            }
+            for chunk in chunks
+        ]
+        embeddings = await registry.execute("embed_batch", texts=chunks)
+        await registry.execute("store_chunks", payloads=payloads, embeddings=embeddings)
 
-    # ── 4. Build response ─────────────────────────────────────────────────────
+    # ── 5. Build response ─────────────────────────────────────────────────────
     response_lines = [
         "Interview recorded successfully.",
         f"  Company  : {extracted.get('company', 'N/A')}",
@@ -121,11 +124,11 @@ def _chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     """Split text into overlapping word-based chunks."""
     words = text.split()
     if not words:
-        return [text]
+        return []  # skip whitespace-only or empty input
     chunks = []
     step = max(1, chunk_size - overlap)
     for i in range(0, len(words), step):
         chunk = " ".join(words[i : i + chunk_size])
-        if chunk:
+        if chunk.strip():
             chunks.append(chunk)
     return chunks

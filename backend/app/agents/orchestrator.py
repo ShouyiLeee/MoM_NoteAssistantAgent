@@ -16,7 +16,10 @@ from app.agents.note_agent import note_agent_node
 from app.agents.memory_agent import memory_agent_node
 from app.agents.analysis_agent import analysis_agent_node
 from app.agents.simulation_agent import simulation_agent_node
-from app.services.llm import llm
+from app.tools.registry import registry
+
+# Import tool modules to ensure tools are registered
+import app.tools.llm_tools  # noqa: F401
 
 INTENT_SYSTEM = """You are an intent classifier for an Interview Intelligence AI system.
 
@@ -40,7 +43,8 @@ async def orchestrator_node(state: AgentState) -> dict:
         return {"intent": current_intent}
 
     user_message = state["raw_input"]
-    intent_raw = await llm.generate(
+    intent_raw = await registry.execute(
+        "generate_text",
         prompt=f'User message: "{user_message}"',
         system=INTENT_SYSTEM,
     )

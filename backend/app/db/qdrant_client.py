@@ -10,8 +10,8 @@ from qdrant_client.models import (
 )
 from app.config import settings
 
-# gemini-embedding-001 produces 3072-dimensional vectors
-VECTOR_SIZE = 3072
+# text-embedding-004 produces 768-dimensional vectors
+VECTOR_SIZE = 768
 
 qdrant = AsyncQdrantClient(url=settings.QDRANT_URL)
 

@@ -96,7 +96,7 @@ export default function DashboardPage() {
         datasets: [
           {
             label: "Interviews",
-            data: Object.values(data.by_stage),
+            data: Object.values(data.by_stage).map((v) => v.total),
             backgroundColor: STAGE_COLORS,
             borderRadius: 6,
           },
@@ -106,11 +106,11 @@ export default function DashboardPage() {
 
   const companyBarData = data
     ? {
-        labels: data.by_company.map((c) => c.company || "Unknown"),
+        labels: Object.keys(data.by_company),
         datasets: [
           {
             label: "Interviews",
-            data: data.by_company.map((c) => c.count),
+            data: Object.values(data.by_company).map((v) => v.total),
             backgroundColor: "#3b82f6",
             borderRadius: 6,
           },
@@ -188,13 +188,13 @@ export default function DashboardPage() {
               />
               <KpiCard
                 label="Pass Rate"
-                value={`${((data?.pass_rate ?? 0) * 100).toFixed(0)}%`}
+                value={`${(data?.pass_rate ?? 0).toFixed(1)}%`}
                 sub={`${data?.by_result?.Pass ?? 0} passed`}
                 color="border-green-500"
               />
               <KpiCard
                 label="Companies"
-                value={data?.by_company?.length ?? 0}
+                value={data?.by_company ? Object.keys(data.by_company).length : 0}
                 color="border-purple-500"
               />
               <KpiCard
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
                       <p className="text-2xl font-bold">
-                        {((data?.pass_rate ?? 0) * 100).toFixed(0)}%
+                        {(data?.pass_rate ?? 0).toFixed(1)}%
                       </p>
                       <p className="text-xs text-gray-400">Pass</p>
                     </div>

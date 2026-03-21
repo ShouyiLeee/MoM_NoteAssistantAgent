@@ -90,7 +90,9 @@ async def get_analytics(user_id: str):
         # ── Most common failure stage ─────────────────────────────────────────
         fail_stage = None
         if by_stage:
-            fail_stage = max(by_stage.items(), key=lambda x: x[1].get("fail", 0))[0]
+            max_fail_entry = max(by_stage.items(), key=lambda x: x[1].get("fail", 0))
+            if max_fail_entry[1].get("fail", 0) > 0:
+                fail_stage = max_fail_entry[0]
 
         return AnalyticsResponse(
             total=total,

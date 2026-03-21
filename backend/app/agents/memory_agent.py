@@ -4,27 +4,24 @@ Memory Agent — retrieves interview history from PostgreSQL.
 Handles user queries like:
   "Show me my interview history"
   "List all interviews where I failed"
+
+All external operations go through MCP tools.
 """
 
 from langchain_core.messages import AIMessage
-from sqlalchemy import select
 
 from app.agents.state import AgentState
-from app.db.postgres import AsyncSessionLocal
-from app.models.interview import Interview
+from app.tools.registry import registry
+
+# Import tool modules to ensure tools are registered
+import app.tools.db_tools  # noqa: F401
 
 
 async def memory_agent_node(state: AgentState) -> dict:
     user_id = state["user_id"]
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Interview)
-            .where(Interview.user_id == user_id)
-            .order_by(Interview.created_at.desc())
-            .limit(20)
-        )
-        interviews = result.scalars().all()
+    # ── Retrieve interview history via DB tool ────────────────────────────────
+    interviews = await registry.execute("get_interviews", user_id=user_id)
 
     if not interviews:
         response = (
@@ -35,10 +32,10 @@ async def memory_agent_node(state: AgentState) -> dict:
         lines = [f"Interview History — {len(interviews)} record(s):\n"]
         for i, iv in enumerate(interviews, 1):
             lines.append(
-                f"{i}. {iv.company} | {iv.role} | "
-                f"Stage: {iv.stage or 'N/A'} | "
-                f"Result: {iv.result or 'N/A'} | "
-                f"Date: {iv.date or 'N/A'}"
+                f"{i}. {iv['company']} | {iv['role']} | "
+                f"Stage: {iv.get('stage') or 'N/A'} | "
+                f"Result: {iv.get('result') or 'N/A'} | "
+                f"Date: {iv.get('date') or 'N/A'}"
             )
         response = "\n".join(lines)
 

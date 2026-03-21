@@ -11,6 +11,8 @@ Output format (JSON):
   "focus_area": "<topic being tested>",
   "difficulty": "easy|medium|hard"
 }
+
+All external operations go through MCP tools.
 """
 
 import uuid
@@ -18,8 +20,11 @@ import uuid
 from langchain_core.messages import AIMessage
 
 from app.agents.state import AgentState
-from app.services.llm import llm
-from app.services.rag import retrieve_context, build_context_block
+from app.tools.registry import registry
+
+# Import tool modules to ensure tools are registered
+import app.tools.llm_tools  # noqa: F401
+import app.tools.rag_tools  # noqa: F401
 
 SIMULATION_SYSTEM = """You are an expert technical interviewer with 10+ years of experience at top tech companies.
 
@@ -46,10 +51,14 @@ async def simulation_agent_node(state: AgentState) -> dict:
     target_role = mock_session.get("target_role", "Software Engineer")
     difficulty = mock_session.get("difficulty", "medium")
 
-    # ── 1. Retrieve user's weakness patterns via RAG ──────────────────────────
+    # ── 1. Retrieve user's weakness patterns via RAG tool ─────────────────────
     weakness_query = "common failures, weaknesses, and negative feedback in interviews"
-    weakness_chunks = await retrieve_context(weakness_query, user_id, top_k=3)
-    weakness_context = build_context_block(weakness_chunks)
+    weakness_chunks = await registry.execute(
+        "retrieve_context", query=weakness_query, user_id=user_id, top_k=3
+    )
+    weakness_context = await registry.execute(
+        "build_context_block", chunks=weakness_chunks
+    )
 
     # ── 2. Build simulation prompt ────────────────────────────────────────────
     prompt = f"""Generate a mock interview question for:
@@ -62,8 +71,10 @@ Candidate's Known Weakness Areas (from past interviews):
 
 Create a question that specifically targets these weak areas."""
 
-    # ── 3. Generate mock interview ────────────────────────────────────────────
-    result = await llm.generate_json(prompt=prompt, system=SIMULATION_SYSTEM)
+    # ── 3. Generate mock interview via LLM tool ──────────────────────────────
+    result = await registry.execute(
+        "generate_json", prompt=prompt, system=SIMULATION_SYSTEM
+    )
 
     session_id = str(uuid.uuid4())
 

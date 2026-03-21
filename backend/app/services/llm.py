@@ -26,13 +26,29 @@ class GeminiLLM:
         )
         return response.text
 
-    async def generate_json(self, prompt: str, system: str | None = None) -> dict:
+    async def generate_json(self, prompt: str, system: str | None = None, max_retries: int = 2) -> dict:
         """Generate a response and parse it as JSON.
         Strips markdown code fences if present.
+        Retries up to max_retries times on parse failure.
         """
         json_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. No markdown, no explanation."
-        raw = await self.generate(json_prompt, system)
-        return _parse_json(raw)
+        last_error = None
+        for attempt in range(max_retries):
+            raw = await self.generate(json_prompt, system)
+            try:
+                return _parse_json(raw)
+            except json.JSONDecodeError as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    json_prompt = (
+                        f"{prompt}\n\n"
+                        "Your previous response was not valid JSON. "
+                        "Respond ONLY with valid JSON. No markdown, no explanation."
+                    )
+        raise ValueError(
+            f"LLM returned invalid JSON after {max_retries} attempts. "
+            f"Last response: {raw[:300]}..."
+        ) from last_error
 
 
 def _parse_json(text: str) -> dict:
