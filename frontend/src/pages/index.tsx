@@ -15,6 +15,8 @@ import {
 import { Doughnut, Bar, Line } from "react-chartjs-2";
 import Layout from "@/components/layout/Layout";
 import { fetchAnalytics, type AnalyticsResponse } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { getUserId } from "@/lib/user";
 
 ChartJS.register(
@@ -62,12 +64,15 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 export default function DashboardPage() {
+  const { user, isLoading: authLoading } = useAuth();
+  useRequireAuth();
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const uid = getUserId();
+    if (!uid || uid === "anonymous") return;
     fetchAnalytics(uid)
       .then(setData)
       .catch(() => setError("Failed to load analytics. Make sure the backend is running."))
@@ -144,12 +149,15 @@ export default function DashboardPage() {
     },
   };
 
+  // Don't render while auth is resolving (prevents flash + anonymous API calls)
+  if (authLoading) return null;
+
   return (
     <>
       <Head>
         <title>Dashboard — Interview Note Agent</title>
       </Head>
-      <Layout title="Dashboard">
+      <Layout title={user ? `Dashboard — ${user.name.split(" ")[0]}` : "Dashboard"}>
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
@@ -201,6 +209,12 @@ export default function DashboardPage() {
                 label="Weakest Stage"
                 value={data?.weakest_stage ?? "—"}
                 color="border-red-400"
+              />
+              <KpiCard
+                label="Interview Streak"
+                value={data?.streak ? `${data.streak} mo` : "—"}
+                sub="consecutive active months"
+                color="border-amber-400"
               />
             </>
           )}
@@ -265,7 +279,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Timeline */}
-        <div className="card p-5">
+        <div className="card p-5 mb-4">
           <h3 className="font-semibold text-gray-700 mb-4">Interview Activity Timeline</h3>
           {loading ? (
             <Skeleton className="h-40" />
@@ -275,6 +289,28 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400 text-center py-8">No data yet</p>
           )}
         </div>
+
+        {/* Skills from CV */}
+        {data?.skills_frequency && Object.keys(data.skills_frequency).length > 0 && (
+          <div className="card p-5">
+            <h3 className="font-semibold text-gray-700 mb-4">Your CV Skills</h3>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(data.skills_frequency)
+                .sort((a, b) => b[1] - a[1])
+                .map(([skill]) => (
+                  <span
+                    key={skill}
+                    className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-sm font-medium"
+                  >
+                    {skill}
+                  </span>
+                ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              From your uploaded CV. <a href="/cv" className="text-blue-500 hover:underline">Update CV →</a>
+            </p>
+          </div>
+        )}
       </Layout>
     </>
   );

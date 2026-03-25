@@ -49,7 +49,7 @@ class InterviewHistoryResponse(BaseModel):
 # ── Analysis ──────────────────────────────────────────────────────────────────
 
 class AnalysisRequest(BaseModel):
-    user_id: str
+    user_id: str | None = None  # deprecated: identity now comes from JWT
     query: str = Field(..., min_length=5, description="Natural language question about interview performance")
 
 
@@ -77,6 +77,33 @@ class MockInterviewResponse(BaseModel):
     session_id: str
     question: MockInterviewQuestion
     message: str
+    cv_context: str | None = None
+
+
+class MockAnswerRequest(BaseModel):
+    target_role: str
+    difficulty: str
+    question: str
+    answer: str
+    turn: int = 1
+    max_turns: int = 5
+    cv_context: str | None = None  # passed back from frontend
+
+
+class AnswerEvaluation(BaseModel):
+    score: int  # 1-10
+    feedback: str
+    strengths: list[str]
+    gaps: list[str]
+
+
+class MockAnswerResponse(BaseModel):
+    evaluation: AnswerEvaluation
+    next_question: MockInterviewQuestion | None
+    is_complete: bool
+    final_summary: str | None = None
+    turn: int
+    max_turns: int
 
 
 # ── CV ────────────────────────────────────────────────────────────────────────
@@ -111,3 +138,5 @@ class AnalyticsResponse(BaseModel):
     by_company: dict[str, dict]
     timeline: list[dict]
     weakest_stage: str | None
+    skills_frequency: dict[str, int] | None = None  # skill → count across all interviews
+    streak: int = 0  # consecutive months with at least 1 interview

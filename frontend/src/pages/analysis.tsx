@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Head from "next/head";
 import Layout, { useAppToast } from "@/components/layout/Layout";
 import { analyzeInterviews } from "@/lib/api";
-import { getUserId } from "@/lib/user";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 interface Message {
   role: "user" | "ai";
@@ -58,17 +58,19 @@ function ChatInterface() {
     setLoading(true);
 
     try {
-      const uid = getUserId();
-      const res = await analyzeInterviews(uid, q);
+      const res = await analyzeInterviews(q);
       setMessages((prev) => [
         ...prev,
         { role: "ai", content: res.answer, chunks: res.context_chunks_used },
       ]);
-    } catch {
-      toast("Analysis failed. Check that the backend is running.", "error");
+    } catch (e: unknown) {
+      const detail =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        "Analysis failed. Check that the backend is running.";
+      toast(detail, "error");
       setMessages((prev) => [
         ...prev,
-        { role: "ai", content: "Sorry, I couldn't retrieve an answer right now." },
+        { role: "ai", content: `Error: ${detail}` },
       ]);
     } finally {
       setLoading(false);
@@ -138,6 +140,7 @@ function ChatInterface() {
 }
 
 export default function AnalysisPage() {
+  useRequireAuth();
   return (
     <>
       <Head>

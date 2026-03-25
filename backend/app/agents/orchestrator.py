@@ -16,6 +16,8 @@ from app.agents.note_agent import note_agent_node
 from app.agents.memory_agent import memory_agent_node
 from app.agents.analysis_agent import analysis_agent_node
 from app.agents.simulation_agent import simulation_agent_node
+from app.agents.cv_review_agent import cv_review_agent_node
+from app.agents.question_gen_agent import question_gen_agent_node
 from app.tools.registry import registry
 
 # Import tool modules to ensure tools are registered
@@ -50,7 +52,7 @@ async def orchestrator_node(state: AgentState) -> dict:
     )
     intent = intent_raw.strip().lower().split()[0]  # take first word only
 
-    valid_intents = {"note", "analysis", "simulation", "memory"}
+    valid_intents = {"note", "analysis", "simulation", "memory", "cv_review", "question_gen", "jd_analysis"}
     if intent not in valid_intents:
         intent = "analysis"
 
@@ -67,6 +69,9 @@ def route_by_intent(state: AgentState) -> str:
         "analysis": "analysis_agent",
         "simulation": "simulation_agent",
         "memory": "memory_agent",
+        "cv_review": "cv_review_agent",
+        "question_gen": "question_gen_agent",
+        "jd_analysis": "analysis_agent",  # reuse analysis agent for JD-scoped queries
     }
     return routing.get(state.get("intent", "analysis"), "analysis_agent")
 
@@ -81,6 +86,8 @@ def build_graph():
     graph.add_node("analysis_agent", analysis_agent_node)
     graph.add_node("simulation_agent", simulation_agent_node)
     graph.add_node("memory_agent", memory_agent_node)
+    graph.add_node("cv_review_agent", cv_review_agent_node)
+    graph.add_node("question_gen_agent", question_gen_agent_node)
 
     # Entry point
     graph.add_edge(START, "orchestrator")
@@ -94,6 +101,8 @@ def build_graph():
             "analysis_agent": "analysis_agent",
             "simulation_agent": "simulation_agent",
             "memory_agent": "memory_agent",
+            "cv_review_agent": "cv_review_agent",
+            "question_gen_agent": "question_gen_agent",
         },
     )
 
@@ -102,6 +111,8 @@ def build_graph():
     graph.add_edge("analysis_agent", END)
     graph.add_edge("simulation_agent", END)
     graph.add_edge("memory_agent", END)
+    graph.add_edge("cv_review_agent", END)
+    graph.add_edge("question_gen_agent", END)
 
     return graph.compile()
 

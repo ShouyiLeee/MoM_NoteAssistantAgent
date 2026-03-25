@@ -2,10 +2,14 @@
 Analytics API — aggregated interview performance data for the dashboard.
 """
 
+import json
+from datetime import date
+
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
 from app.db.postgres import AsyncSessionLocal
+from app.models.cv import UserCV
 from app.models.interview import Interview
 from app.schemas.interview import AnalyticsResponse
 
@@ -94,6 +98,40 @@ async def get_analytics(user_id: str):
             if max_fail_entry[1].get("fail", 0) > 0:
                 fail_stage = max_fail_entry[0]
 
+        # ── Skills frequency from active CV ───────────────────────────────────
+        skills_frequency: dict[str, int] | None = None
+        cv_result = await session.execute(
+            select(UserCV)
+            .where(UserCV.user_id == user_id, UserCV.is_active == True)
+            .limit(1)
+        )
+        active_cv = cv_result.scalar_one_or_none()
+        if active_cv and active_cv.skills:
+            try:
+                skills_list = json.loads(active_cv.skills)
+                skills_frequency = {s: 1 for s in skills_list}
+            except Exception:
+                pass
+
+        # ── Streak: consecutive months with ≥1 interview ──────────────────────
+        streak = 0
+        if timeline:
+            months = sorted({t["month"] for t in timeline}, reverse=True)
+            today = date.today()
+            current_month = f"{today.year}-{today.month:02d}"
+            if months and months[0] >= current_month[:7]:
+                streak = 1
+                for i in range(1, len(months)):
+                    prev = months[i - 1]
+                    curr = months[i]
+                    y1, m1 = int(prev[:4]), int(prev[5:7])
+                    y2, m2 = int(curr[:4]), int(curr[5:7])
+                    diff = (y1 - y2) * 12 + (m1 - m2)
+                    if diff == 1:
+                        streak += 1
+                    else:
+                        break
+
         return AnalyticsResponse(
             total=total,
             pass_rate=pass_rate,
@@ -102,4 +140,6 @@ async def get_analytics(user_id: str):
             by_company=by_company,
             timeline=timeline,
             weakest_stage=fail_stage,
+            skills_frequency=skills_frequency,
+            streak=streak,
         )

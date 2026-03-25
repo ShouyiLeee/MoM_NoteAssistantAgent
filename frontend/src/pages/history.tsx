@@ -3,6 +3,7 @@ import Head from "next/head";
 import Layout from "@/components/layout/Layout";
 import { fetchHistory, type InterviewSummary } from "@/lib/api";
 import { getUserId } from "@/lib/user";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 const RESULT_BADGE: Record<string, string> = {
   Pass: "bg-green-100 text-green-700",
@@ -46,6 +47,7 @@ function InterviewRow({ iv }: { iv: InterviewSummary }) {
 }
 
 export default function HistoryPage() {
+  useRequireAuth();
   const [all, setAll] = useState<InterviewSummary[]>([]);
   const [filtered, setFiltered] = useState<InterviewSummary[]>([]);
   const [loading, setLoading] = useState(true);

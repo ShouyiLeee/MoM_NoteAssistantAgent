@@ -110,6 +110,7 @@ async def tool_get_active_cv(user_id: str) -> dict | None:
             select(UserCV)
             .where(UserCV.user_id == user_id, UserCV.is_active == True)
             .order_by(UserCV.version.desc())
+            .limit(1)
         )
         cv = result.scalar_one_or_none()
         if not cv:

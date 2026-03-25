@@ -16,8 +16,11 @@ class UserCV(Base):
     user_id = Column(String, nullable=False, index=True)
     version = Column(Integer, default=1)
     original_filename = Column(String, nullable=True)
+    original_file_path = Column(String, nullable=True)  # stored file path (future use)
 
     # LLM-extracted fields
+    name = Column(String, nullable=True)             # extracted full name
+    contact_info = Column(Text, nullable=True)       # JSON: {email, phone, linkedin}
     summary = Column(Text, nullable=True)            # 2-3 sentence professional summary
     skills = Column(Text, nullable=True)             # JSON list of skills as string
     experience_years = Column(Integer, nullable=True)

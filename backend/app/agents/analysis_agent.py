@@ -19,39 +19,68 @@ from app.tools.registry import registry
 # Import tool modules to ensure tools are registered
 import app.tools.llm_tools  # noqa: F401
 import app.tools.rag_tools  # noqa: F401
+import app.tools.db_tools   # noqa: F401
 
 ANALYSIS_SYSTEM = """You are an expert interview performance coach and data analyst.
 
-Using the retrieved interview records provided in the context, answer the user's question with:
-1. Clear, specific insights backed by the data
-2. Identified patterns (failure stages, recurring weaknesses, trends)
-3. Concrete, actionable improvement recommendations
+Using the candidate's interview history, CV background, and any retrieved context, answer the user's question with:
+1. Clear, specific insights backed by the actual data provided
+2. Identified patterns (failure stages, recurring weaknesses, trends over time)
+3. Concrete, actionable improvement recommendations tied to their background and skills
+4. If CV is provided, highlight skill gaps between their background and the roles they're interviewing for
 
-Be direct and data-driven. If the context contains no relevant data, say so clearly."""
+Be direct, personalized, and data-driven. Reference specific companies, roles, and feedback from their history.
+If the data shows no relevant information, say so honestly and suggest what data would help."""
 
 
 async def analysis_agent_node(state: AgentState) -> dict:
     query = state["raw_input"]
     user_id = state["user_id"]
+    cv_context = state.get("cv_context")
 
-    # ── 1. Retrieve relevant interview chunks via RAG tool ────────────────────
+    # ── 1. Fetch structured interview history from PostgreSQL ─────────────────
+    interviews = await registry.execute("get_interviews", user_id=user_id, limit=50)
+
+    # ── 2. Retrieve semantically relevant chunks via RAG (best-effort) ────────
     context_chunks = await registry.execute(
         "retrieve_context", query=query, user_id=user_id
     )
-    context_block = await registry.execute(
-        "build_context_block", chunks=context_chunks
+    rag_block = await registry.execute("build_context_block", chunks=context_chunks)
+
+    # ── 3. Build structured interview summary ─────────────────────────────────
+    if interviews:
+        lines = []
+        for iv in interviews:
+            parts = [f"- {iv.get('company', '?')} | {iv.get('role', '?')}"]
+            if iv.get("stage"):
+                parts[0] += f" | Stage: {iv['stage']}"
+            if iv.get("result"):
+                parts[0] += f" | Result: {iv['result']}"
+            if iv.get("date"):
+                parts[0] += f" | Date: {iv['date']}"
+            if iv.get("feedback"):
+                parts.append(f"  Feedback: {iv['feedback']}")
+            lines.append("\n".join(parts))
+        structured_block = "\n".join(lines)
+    else:
+        structured_block = "No interviews recorded yet."
+
+    # ── 4. Build full analysis prompt ─────────────────────────────────────────
+    cv_section = f"\n=== Candidate CV / Background ===\n{cv_context}\n" if cv_context else ""
+    rag_section = (
+        f"\n=== Semantically Relevant Notes (RAG) ===\n{rag_block}\n"
+        if context_chunks
+        else ""
     )
 
-    # ── 2. Build analysis prompt ──────────────────────────────────────────────
-    prompt = f"""User Question:
-{query}
+    prompt = f"""User Question: {query}
+{cv_section}
+=== Full Interview History ({len(interviews)} records) ===
+{structured_block}
+{rag_section}
+Please answer the question with specific insights from the data above."""
 
-Retrieved Interview Context:
-{context_block}
-
-Provide a thorough analysis based on the above interview records."""
-
-    # ── 3. LLM reasoning via LLM tool ────────────────────────────────────────
+    # ── 5. LLM reasoning ─────────────────────────────────────────────────────
     answer = await registry.execute(
         "generate_text", prompt=prompt, system=ANALYSIS_SYSTEM
     )

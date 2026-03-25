@@ -14,11 +14,15 @@ async def retrieve_context(query: str, user_id: str, top_k: int | None = None) -
     for the given user from Qdrant.
 
     Returns a list of raw text strings ready to be injected into a prompt.
+    Fails gracefully — returns empty list if Qdrant is unavailable.
     """
-    k = top_k or settings.TOP_K
-    query_embedding = await embedding_service.embed(query)
-    chunks = await search(query_embedding, user_id, top_k=k)
-    return [chunk.get("text", "") for chunk in chunks if chunk.get("text")]
+    try:
+        k = top_k or settings.TOP_K
+        query_embedding = await embedding_service.embed(query)
+        chunks = await search(query_embedding, user_id, top_k=k)
+        return [chunk.get("text", "") for chunk in chunks if chunk.get("text")]
+    except Exception:
+        return []  # fail gracefully — agents can still work without context
 
 
 def build_context_block(chunks: list[str]) -> str:

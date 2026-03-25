@@ -11,9 +11,10 @@ class AgentState(TypedDict):
 
     # Identity
     user_id: str
+    user_role: str  # "interviewee" | "interviewer" | ""
 
     # Routing
-    intent: Literal["note", "analysis", "simulation", "memory", "unknown"]
+    intent: Literal["note", "analysis", "simulation", "memory", "cv_review", "question_gen", "jd_analysis", "unknown"]
 
     # Raw user input or uploaded content
     raw_input: str
@@ -36,3 +37,8 @@ class AgentState(TypedDict):
     # Optional extra context for Note Agent
     jd_text: str | None       # Job Description text
     cv_context: str | None    # Compact CV summary string
+
+    # Interviewer agent fields
+    candidate_ids: list[str]  # List of candidate user IDs for cv_review
+    question_set: dict | None # Output from question_gen agent
+    jd_id: str | None         # JD ID for interviewer agents

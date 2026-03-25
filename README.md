@@ -16,8 +16,8 @@ Interview Data  →  Knowledge  →  Insight  →  Action
 
 | User | Pain Point | Solution |
 |---|---|---|
-| Job Seekers | "I keep failing but don't know why" | Track history, detect weaknesses, practice with mock interviews |
-| Recruiters | "Hard to compare candidates objectively" | Structured candidate notes, AI-powered ranking |
+| Job Seekers (Interviewee) | "I keep failing but don't know why" | Track history, detect weaknesses, practice with mock interviews (AI-powered) |
+| Companies / Recruiters (Interviewer) | "Hard to manage and compare candidates at scale" | Candidate CV repository with AI-assessed potential, AI Candidate Intelligence for natural language queries |
 
 ---
 
@@ -26,12 +26,15 @@ Interview Data  →  Knowledge  →  Insight  →  Action
 ```
 User
  │
-Frontend (Next.js)
+Frontend (Next.js + Tailwind CSS)
  │
-FastAPI  ─── POST /interviews/upload
-         ─── POST /interviews/analyze
-         ─── POST /mock-interview/start
-         ─── GET  /interviews/history
+FastAPI (v0.2.0)
+ ├── POST /interviews/upload
+ ├── POST /interviews/analyze
+ ├── POST /mock-interview/start
+ ├── GET  /interviews/history
+ ├── POST /cv/analyze
+ └── GET  /analytics/...
  │
 LangGraph Orchestrator
  │  (classifies user intent, routes to correct agent)
@@ -60,13 +63,14 @@ Storage
 
 | Layer | Technology |
 |---|---|
-| Backend | Python, FastAPI |
-| Agent Framework | LangGraph, LangChain Core |
+| Backend | Python 3.11+, FastAPI |
+| Agent Framework | LangGraph 0.2, LangChain Core |
 | LLM | Gemini Flash 2.5 (`google-genai`) |
 | Embeddings | Gemini `text-embedding-004` |
-| Structured DB | PostgreSQL + SQLAlchemy (async) |
+| Structured DB | PostgreSQL 16 + SQLAlchemy (async) |
 | Vector DB | Qdrant |
-| Frontend | Next.js, React, Tailwind CSS |
+| Frontend | Next.js, React 18, Tailwind CSS |
+| Infrastructure | Docker, Docker Compose |
 
 ---
 
@@ -86,7 +90,7 @@ MoM_NoteAssistantAgent/
 │   │   │   ├── analysis_agent.py     # RAG-powered performance analysis
 │   │   │   └── simulation_agent.py   # Mock interview generation
 │   │   ├── services/
-│   │   │   ├── llm.py                # Gemini LLM wrapper (single entry point)
+│   │   │   ├── llm.py                # Gemini LLM wrapper
 │   │   │   ├── embeddings.py         # Gemini embedding wrapper
 │   │   │   └── rag.py                # Retrieval helper (embed + search)
 │   │   ├── db/
@@ -99,14 +103,29 @@ MoM_NoteAssistantAgent/
 │   │   └── api/
 │   │       ├── interviews.py         # Upload + history endpoints
 │   │       ├── analysis.py           # Analysis endpoint
-│   │       └── mock_interview.py     # Mock interview endpoint
+│   │       ├── mock_interview.py     # Mock interview endpoint
+│   │       ├── cv.py                 # CV analysis endpoint
+│   │       └── analytics.py         # Analytics endpoint
 │   ├── tests/
 │   │   └── fixtures/
 │   │       └── sample_note.txt       # Example interview note for testing
 │   ├── requirements.txt
 │   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── pages/                    # Next.js Pages Router
+│   │   │   ├── index.tsx             # Home / Dashboard
+│   │   │   ├── upload.tsx            # Upload interview notes
+│   │   │   ├── history.tsx           # Interview history
+│   │   │   ├── analysis.tsx          # Performance analysis
+│   │   │   ├── mock.tsx              # Mock interview
+│   │   │   └── cv.tsx                # CV analyzer
+│   │   ├── components/               # Reusable UI components
+│   │   ├── lib/                      # API client & utilities
+│   │   └── styles/                   # Global styles
+│   ├── package.json
+│   └── next.config.js
 ├── docker-compose.yml                # PostgreSQL + Qdrant
-├── .gitignore
 ├── CLAUDE.md
 └── README.md
 ```
@@ -115,47 +134,114 @@ MoM_NoteAssistantAgent/
 
 ## Quick Start
 
-### 1. Prerequisites
+### Prerequisites
 
-- Python 3.11+
-- Docker (for PostgreSQL and Qdrant)
-- Gemini API key — get one at [Google AI Studio](https://aistudio.google.com)
+- **Python 3.11+**
+- **Node.js 18+** and npm
+- **Docker Desktop** (for PostgreSQL and Qdrant)
+- **Gemini API key** — get one at [Google AI Studio](https://aistudio.google.com)
 
-### 2. Start Infrastructure
+---
+
+### Step 1 — Start Infrastructure
 
 ```bash
+# From the project root
 docker-compose up -d
 ```
 
 This starts:
-- PostgreSQL on `localhost:5432`
-- Qdrant on `localhost:6333`
+- **PostgreSQL 16** on `localhost:5432` (database: `interview_agent`)
+- **Qdrant** on `localhost:6333` (HTTP) and `localhost:6334` (gRPC)
 
-### 3. Set Up Backend
+Verify services are running:
+```bash
+docker-compose ps
+```
+
+---
+
+### Step 2 — Configure Backend
 
 ```bash
 cd backend
 
 # Create virtual environment
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+# Activate (Windows)
+.venv\Scripts\activate
+# Activate (macOS/Linux)
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Create .env from template
 cp .env.example .env
-# Edit .env and set GEMINI_API_KEY=your-key-here
 ```
 
-### 4. Run the Server
+Open `.env` and set your Gemini API key:
+```env
+GEMINI_API_KEY=your-gemini-api-key-here
+```
+
+---
+
+### Step 3 — Run Backend
 
 ```bash
+# Make sure you are inside backend/ with venv activated
 uvicorn app.main:app --reload
 ```
 
-Server starts at `http://localhost:8000`
-Interactive API docs at `http://localhost:8000/docs`
+- API server: `http://localhost:8000`
+- Interactive docs (Swagger): `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+> **Note**: On first startup, the app automatically creates all PostgreSQL tables and initializes the Qdrant collection.
+
+---
+
+### Step 4 — Run Frontend
+
+Open a **new terminal**:
+
+```bash
+cd frontend
+
+npm install
+npm run dev
+```
+
+- Frontend: `http://localhost:3000`
+
+---
+
+### All-in-one summary (3 terminals)
+
+| Terminal | Directory | Command |
+|---|---|---|
+| 1 | project root | `docker-compose up -d` |
+| 2 | `backend/` | `.venv\Scripts\activate && uvicorn app.main:app --reload` |
+| 3 | `frontend/` | `npm install && npm run dev` |
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | — | **Required.** Gemini API key |
+| `LLM_MODEL` | `gemini-2.5-flash` | LLM model name |
+| `EMBEDDING_MODEL` | `text-embedding-004` | Embedding model |
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/interview_agent` | PostgreSQL connection URL |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant server URL |
+| `QDRANT_COLLECTION` | `interview_notes` | Qdrant collection name |
+| `TOP_K` | `5` | RAG retrieval count |
+| `CHUNK_SIZE` | `500` | Text chunk size for embeddings |
+| `CHUNK_OVERLAP` | `50` | Chunk overlap |
+| `DEBUG` | `true` | Enable SQLAlchemy query logging |
 
 ---
 
@@ -318,24 +404,22 @@ mypy app/
 
 ### Planned Features
 
+**Interviewee:**
 - [ ] Interview analytics dashboard (failure distribution, progress timeline)
 - [ ] PDF and audio transcript ingestion
-- [ ] Recruiter mode: candidate comparison and ranking
-- [ ] Personalized learning plans
+- [ ] Unified Interviews page (upload + history in one)
+- [ ] CV-aware mock interview
+- [ ] Personalized AI analysis with CV gap suggestions
+
+**Interviewer / Company:**
+- [ ] Candidate CV repository with import, filter, sort
+- [ ] AI-assessed `potential_level` on every CV import (High / Medium / Low)
+- [ ] AI Candidate Intelligence — natural language queries about candidates
+- [ ] Company dashboard with pipeline funnel & top candidate overview
+- [ ] Unified interview notes page (upload + history)
+- [ ] JD management + candidate matching + question bank
+
+**Technical:**
 - [ ] Advanced RAG (hybrid retrieval, reranking)
-- [ ] Next.js frontend
-
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | — | Gemini API key (required) |
-| `LLM_MODEL` | `gemini-2.5-flash` | LLM model name |
-| `EMBEDDING_MODEL` | `text-embedding-004` | Embedding model |
-| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/interview_agent` | PostgreSQL URL |
-| `QDRANT_URL` | `http://localhost:6333` | Qdrant server URL |
-| `QDRANT_COLLECTION` | `interview_notes` | Qdrant collection name |
-| `TOP_K` | `5` | RAG retrieval count |
-| `DEBUG` | `true` | Enable SQLAlchemy query logging |
+- [ ] Auth & multi-user support (Google OAuth + JWT)
+- [ ] Streaming responses for LLM operations

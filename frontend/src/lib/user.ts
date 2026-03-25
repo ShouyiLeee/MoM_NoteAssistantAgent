@@ -1,10 +1,9 @@
-const DEFAULT_USER = "user-123";
+/**
+ * Legacy shim — delegates to auth.ts JWT-based user identity.
+ * Kept for backward compatibility with existing page components.
+ */
+export { getUserId } from "@/lib/auth";
 
-export function getUserId(): string {
-  if (typeof window === "undefined") return DEFAULT_USER;
-  return localStorage.getItem("user_id") || DEFAULT_USER;
-}
-
-export function setUserId(id: string) {
-  localStorage.setItem("user_id", id);
+export function setUserId(_id: string) {
+  // No-op: user identity is now managed by JWT in AuthContext.
 }

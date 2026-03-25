@@ -24,7 +24,10 @@ class GeminiLLM:
             model=self.model,
             contents=[types.Content(role="user", parts=[types.Part(text=text)])],
         )
-        return response.text
+        result = response.text
+        if result is None:
+            raise ValueError("LLM returned empty response (possibly blocked by safety filters)")
+        return result
 
     async def generate_json(self, prompt: str, system: str | None = None, max_retries: int = 2) -> dict:
         """Generate a response and parse it as JSON.
@@ -32,19 +35,21 @@ class GeminiLLM:
         Retries up to max_retries times on parse failure.
         """
         json_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. No markdown, no explanation."
-        last_error = None
+        last_error: Exception | None = None
+        raw = ""
         for attempt in range(max_retries):
-            raw = await self.generate(json_prompt, system)
             try:
+                raw = await self.generate(json_prompt, system)
                 return _parse_json(raw)
             except json.JSONDecodeError as e:
                 last_error = e
-                if attempt < max_retries - 1:
-                    json_prompt = (
-                        f"{prompt}\n\n"
-                        "Your previous response was not valid JSON. "
-                        "Respond ONLY with valid JSON. No markdown, no explanation."
-                    )
+                json_prompt = (
+                    f"{prompt}\n\n"
+                    "Your previous response was not valid JSON. "
+                    "Respond ONLY with valid JSON. No markdown, no explanation."
+                )
+            except Exception:
+                raise  # Non-JSON errors should propagate immediately
         raise ValueError(
             f"LLM returned invalid JSON after {max_retries} attempts. "
             f"Last response: {raw[:300]}..."
