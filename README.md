@@ -147,84 +147,87 @@ MoM_NoteAssistantAgent/
 
 ```bash
 # From the project root
-docker-compose up -d
+## Quick Start — One Command (Docker)
+
+> **Prerequisites:** [Docker Desktop](https://docs.docker.com/get-docker/) installed and running. That's it.
+
+**Windows:**
+```cmd
+start.bat
 ```
 
-This starts:
-- **PostgreSQL 16** on `localhost:5432` (database: `interview_agent`)
-- **Qdrant** on `localhost:6333` (HTTP) and `localhost:6334` (gRPC)
-
-Verify services are running:
+**Linux / macOS:**
 ```bash
-docker-compose ps
+chmod +x start.sh
+./start.sh
 ```
+
+The script will:
+1. Check Docker is running
+2. Create `.env` from template (prompts for your Gemini API key)
+3. Auto-generate a secure JWT secret
+4. Build and start all 4 services via Docker Compose
+5. Wait for everything to be healthy
+
+Once ready:
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
+| Qdrant Dashboard | http://localhost:6333/dashboard |
+
+**Other commands:**
+```bash
+./start.sh --stop      # Stop all services
+./start.sh --restart   # Restart all services
+./start.sh --logs      # View live logs
+./start.sh --status    # Check service status
+```
+
+> On first startup, the backend automatically creates all PostgreSQL tables and the Qdrant collection.
 
 ---
 
-### Step 2 — Configure Backend
+### Manual Setup (without Docker — for development)
 
+<details>
+<summary>Click to expand</summary>
+
+#### Step 1 — Start databases
+```bash
+docker-compose up -d postgres qdrant
+```
+
+#### Step 2 — Backend
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv .venv
+source .venv/bin/activate   # Linux/Mac
+# .venv\Scripts\activate    # Windows
 
-# Activate (Windows)
-.venv\Scripts\activate
-# Activate (macOS/Linux)
-source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Create .env from template
 cp .env.example .env
-```
+# Edit .env → set GEMINI_API_KEY
 
-Open `.env` and set your Gemini API key:
-```env
-GEMINI_API_KEY=your-gemini-api-key-here
-```
-
----
-
-### Step 3 — Run Backend
-
-```bash
-# Make sure you are inside backend/ with venv activated
 uvicorn app.main:app --reload
 ```
 
-- API server: `http://localhost:8000`
-- Interactive docs (Swagger): `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-
-> **Note**: On first startup, the app automatically creates all PostgreSQL tables and initializes the Qdrant collection.
-
----
-
-### Step 4 — Run Frontend
-
-Open a **new terminal**:
-
+#### Step 3 — Frontend (new terminal)
 ```bash
 cd frontend
-
 npm install
 npm run dev
 ```
 
-- Frontend: `http://localhost:3000`
-
----
-
-### All-in-one summary (3 terminals)
-
 | Terminal | Directory | Command |
 |---|---|---|
-| 1 | project root | `docker-compose up -d` |
-| 2 | `backend/` | `.venv\Scripts\activate && uvicorn app.main:app --reload` |
+| 1 | project root | `docker-compose up -d postgres qdrant` |
+| 2 | `backend/` | `source .venv/bin/activate && uvicorn app.main:app --reload` |
 | 3 | `frontend/` | `npm install && npm run dev` |
+
+</details>
 
 ---
 
